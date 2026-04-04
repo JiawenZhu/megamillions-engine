@@ -1193,5 +1193,291 @@
         ],
         "evaluated": false,
         "evaluation_summary": null
+    },
+    {
+        "run_id": "b84b2dbe",
+        "version": "4.0",
+        "created_at": "2026-04-04T16:37:52.468781",
+        "target_draw_date": "2026-04-07",
+        "history_size": 2515,
+        "budget": 20,
+        "bankroll_at_pred": 9990,
+        "allocation": {
+            "A-hot": 4,
+            "B-cold": 3,
+            "C-random": 4,
+            "D-hybrid": 9
+        },
+        "ensemble_weights": {
+            "A-hot": {
+                "theta": 0.229543,
+                "kelly_f": 0.0,
+                "ema_roi": -1.0,
+                "allocation": 4
+            },
+            "B-cold": {
+                "theta": 0.136541,
+                "kelly_f": 0.0,
+                "ema_roi": -0.9,
+                "allocation": 3
+            },
+            "C-random": {
+                "theta": 0.224154,
+                "kelly_f": 0.0,
+                "ema_roi": -1.0,
+                "allocation": 4
+            },
+            "D-hybrid": {
+                "theta": 0.431286,
+                "kelly_f": 0.025062,
+                "ema_roi": -0.7,
+                "allocation": 9
+            }
+        },
+        "mab_draw_count": 1,
+        "predictions": [
+            {
+                "wb": [
+                    8,
+                    15,
+                    23,
+                    29,
+                    32
+                ],
+                "mb": 3,
+                "strategy": "A-hot",
+                "source": "ensemble"
+            },
+            {
+                "wb": [
+                    30,
+                    46,
+                    57,
+                    66,
+                    70
+                ],
+                "mb": 6,
+                "strategy": "A-hot",
+                "source": "ensemble"
+            },
+            {
+                "wb": [
+                    11,
+                    23,
+                    24,
+                    54,
+                    70
+                ],
+                "mb": 11,
+                "strategy": "A-hot",
+                "source": "ensemble"
+            },
+            {
+                "wb": [
+                    10,
+                    22,
+                    46,
+                    59,
+                    64
+                ],
+                "mb": 5,
+                "strategy": "A-hot",
+                "source": "ensemble"
+            },
+            {
+                "wb": [
+                    23,
+                    29,
+                    30,
+                    38,
+                    70
+                ],
+                "mb": 3,
+                "strategy": "B-cold",
+                "source": "ensemble"
+            },
+            {
+                "wb": [
+                    6,
+                    23,
+                    25,
+                    30,
+                    40
+                ],
+                "mb": 3,
+                "strategy": "B-cold",
+                "source": "ensemble"
+            },
+            {
+                "wb": [
+                    29,
+                    35,
+                    46,
+                    54,
+                    58
+                ],
+                "mb": 3,
+                "strategy": "B-cold",
+                "source": "ensemble"
+            },
+            {
+                "wb": [
+                    14,
+                    29,
+                    33,
+                    41,
+                    48
+                ],
+                "mb": 13,
+                "strategy": "C-random",
+                "source": "ensemble"
+            },
+            {
+                "wb": [
+                    17,
+                    18,
+                    29,
+                    33,
+                    46
+                ],
+                "mb": 7,
+                "strategy": "C-random",
+                "source": "ensemble"
+            },
+            {
+                "wb": [
+                    2,
+                    17,
+                    30,
+                    47,
+                    67
+                ],
+                "mb": 3,
+                "strategy": "C-random",
+                "source": "ensemble"
+            },
+            {
+                "wb": [
+                    17,
+                    24,
+                    25,
+                    36,
+                    64
+                ],
+                "mb": 5,
+                "strategy": "C-random",
+                "source": "ensemble"
+            },
+            {
+                "wb": [
+                    25,
+                    42,
+                    55,
+                    56,
+                    66
+                ],
+                "mb": 9,
+                "strategy": "D-hybrid",
+                "source": "ensemble"
+            },
+            {
+                "wb": [
+                    10,
+                    21,
+                    28,
+                    46,
+                    51
+                ],
+                "mb": 10,
+                "strategy": "D-hybrid",
+                "source": "ensemble"
+            },
+            {
+                "wb": [
+                    7,
+                    14,
+                    22,
+                    34,
+                    37
+                ],
+                "mb": 8,
+                "strategy": "D-hybrid",
+                "source": "ensemble"
+            },
+            {
+                "wb": [
+                    4,
+                    25,
+                    44,
+                    49,
+                    70
+                ],
+                "mb": 10,
+                "strategy": "D-hybrid",
+                "source": "ensemble"
+            },
+            {
+                "wb": [
+                    6,
+                    31,
+                    46,
+                    49,
+                    70
+                ],
+                "mb": 22,
+                "strategy": "D-hybrid",
+                "source": "ensemble"
+            },
+            {
+                "wb": [
+                    17,
+                    18,
+                    19,
+                    31,
+                    47
+                ],
+                "mb": 25,
+                "strategy": "D-hybrid",
+                "source": "ensemble"
+            },
+            {
+                "wb": [
+                    4,
+                    14,
+                    16,
+                    29,
+                    51
+                ],
+                "mb": 6,
+                "strategy": "D-hybrid",
+                "source": "ensemble"
+            },
+            {
+                "wb": [
+                    17,
+                    24,
+                    26,
+                    43,
+                    59
+                ],
+                "mb": 21,
+                "strategy": "D-hybrid",
+                "source": "ensemble"
+            },
+            {
+                "wb": [
+                    7,
+                    17,
+                    19,
+                    44,
+                    64
+                ],
+                "mb": 3,
+                "strategy": "D-hybrid",
+                "source": "ensemble"
+            }
+        ],
+        "evaluated": false,
+        "evaluation_summary": null
     }
 ]
