@@ -269,6 +269,13 @@ def main() -> None:
         f"\n   Run evaluator.py after the {next_draw_date} draw!"
     )
 
+    # ── Auto-sync to Google Sheets ────────────────────────────────────────────
+    try:
+        from sheets_sync import sync_predictions
+        sync_predictions(run_id=run_record["run_id"])
+    except Exception as e:
+        print(f"\n   [sheets_sync] skipped: {e}")
+
 
 if __name__ == "__main__":
     main()
