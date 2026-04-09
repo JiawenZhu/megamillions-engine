@@ -1,0 +1,44 @@
+{
+    "game": "mega_millions",
+    "draws": 2516,
+    "sum": {
+        "mean": 159.7,
+        "std": 44.28,
+        "low_1sigma": 115.4,
+        "high_1sigma": 204.0,
+        "low_1_5sigma": 93.3,
+        "high_1_5sigma": 226.1,
+        "low_2sigma": 71.1,
+        "high_2sigma": 248.3
+    },
+    "gap": {
+        "max_p90": 34.0,
+        "max_p95": 38.0,
+        "max_p99": 45.0
+    },
+    "parity": {
+        "distribution": {
+            "0": 0.0199,
+            "1": 0.1387,
+            "2": 0.3307,
+            "3": 0.3231,
+            "4": 0.1542,
+            "5": 0.0334
+        },
+        "safe_even_min": 1,
+        "safe_even_max": 5
+    },
+    "high_low": {
+        "midpoint": 35.5,
+        "distribution": {
+            "0": 0.0632,
+            "1": 0.2174,
+            "2": 0.3458,
+            "3": 0.2591,
+            "4": 0.1021,
+            "5": 0.0123
+        },
+        "safe_high_min": 0,
+        "safe_high_max": 4
+    }
+}

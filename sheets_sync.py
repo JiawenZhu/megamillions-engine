@@ -8,181 +8,234 @@ Usage (standalone):
 Called automatically by predictor.py after saving predictions.json.
 
 Authentication:
-    First run opens a browser OAuth flow and caches credentials in
-    ~/.cache/megamillions_token.json  (only needed once).
-    Uses your Google account — no service account / JSON key required.
+    Uses `gws` CLI (Google Workspace CLI) — no Python OAuth needed.
+    One-time setup:
+        gws auth login -s drive,gmail,sheets
 
-Sheet layout (one sheet = "Predictions"):
-    RunID | CreatedAt | TargetDraw | Strategy | Ticket# | N1 N2 N3 N4 N5 | MB | Spent | Won | ROI
+Sheet layout (one sheet tab = "Predictions"):
+    RunID | CreatedAt | TargetDraw | Strategy | Ticket# | N1-N5 | MB
+          | Budget | Spent($) | Won($) | NetROI($) | θA | θB | θC | θD
 """
 
 import json
-import os
+import subprocess
 import sys
 import argparse
 from pathlib import Path
-from datetime import datetime
-
-try:
-    import gspread
-    from google_auth_oauthlib.flow import InstalledAppFlow
-    from google.auth.transport.requests import Request
-    from google.oauth2.credentials import Credentials
-except ImportError:
-    print("❌  Missing dependencies — run:")
-    print("    pip3.13 install gspread google-auth-oauthlib --break-system-packages")
-    sys.exit(1)
 
 # ── Config ────────────────────────────────────────────────────────────────────
 PREDICTIONS_FILE = Path(__file__).parent / "predictions.json"
-TOKEN_FILE       = Path.home() / ".cache" / "megamillions_token.json"
-CLIENT_ID_FILE   = Path(__file__).parent / "google_oauth_client.json"
 
 SPREADSHEET_NAME = "Mega Millions Predictions"
 SHEET_NAME       = "Predictions"
-SCOPES           = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive.file",
-]
 
 HEADER = [
     "RunID", "CreatedAt", "TargetDraw",
     "Strategy", "Ticket#",
     "N1", "N2", "N3", "N4", "N5", "MegaBall",
-    "Budget", "Spent($)", "Won($)", "NetROI($)",
-    "theta_A", "theta_B", "theta_C", "theta_D",
+    "Budget($)", "Spent($)", "Won($)", "NetROI($)",
+    "θ_A-hot", "θ_B-cold", "θ_C-random", "θ_D-hybrid",
 ]
 
-# ── Auth ──────────────────────────────────────────────────────────────────────
 
-def _get_credentials():
-    """Return valid Google API credentials, refreshing or re-authenticating as needed."""
-    creds = None
-    TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
+# ── gws helpers ───────────────────────────────────────────────────────────────
 
-    if TOKEN_FILE.exists():
-        creds = Credentials.from_authorized_user_file(str(TOKEN_FILE), SCOPES)
-
-    if creds and creds.valid:
-        return creds
-
-    if creds and creds.expired and creds.refresh_token:
-        try:
-            creds.refresh(Request())
-            _save_token(creds)
-            return creds
-        except Exception:
-            pass  # fall through to re-auth
-
-    # Need full OAuth flow
-    if not CLIENT_ID_FILE.exists():
-        print(f"\n⚠️  No OAuth client file found at: {CLIENT_ID_FILE}")
-        print("   To set up Google Sheets sync, follow these steps:\n")
-        print("   1. Go to https://console.cloud.google.com/apis/credentials")
-        print("   2. Create → OAuth 2.0 Client ID → Desktop App")
-        print("   3. Download JSON → save as:  google_oauth_client.json")
-        print("      (in the megamillions-engine/ folder)")
-        print("   4. Enable Google Sheets API + Google Drive API for your project")
-        print("   5. Re-run predictor.py\n")
+def _gws(args: list[str], body: dict | None = None) -> dict | None:
+    """Run a gws command, return parsed JSON or None on error."""
+    cmd = ["gws"] + args
+    if body:
+        cmd += ["--json", json.dumps(body)]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        out = result.stdout.strip()
+        if not out:
+            return {}
+        data = json.loads(out)
+        if "error" in data and "spreadsheetId" not in data:
+            # gws wraps real errors in {"error": {...}}
+            err = data["error"]
+            print(f"   [gws error {err.get('code','')}] {err.get('message','unknown')}")
+            return None
+        return data
+    except subprocess.TimeoutExpired:
+        print("   [sheets_sync] gws timed out")
+        return None
+    except json.JSONDecodeError:
+        return {}
+    except FileNotFoundError:
+        print("   [sheets_sync] 'gws' not found — run: brew install gws")
         return None
 
-    flow = InstalledAppFlow.from_client_secrets_file(str(CLIENT_ID_FILE), SCOPES)
-    creds = flow.run_local_server(port=0, open_browser=True)
-    _save_token(creds)
-    return creds
 
-
-def _save_token(creds):
-    TOKEN_FILE.write_text(creds.to_json())
-
-
-# ── Sheet helpers ─────────────────────────────────────────────────────────────
-
-def _open_or_create_sheet(gc):
-    """Open the spreadsheet by name, creating it if needed."""
+def _check_gws() -> bool:
+    """Verify gws is installed and authenticated."""
     try:
-        sh = gc.open(SPREADSHEET_NAME)
-    except gspread.SpreadsheetNotFound:
-        sh = gc.create(SPREADSHEET_NAME)
-        sh.share(None, perm_type="anyone", role="writer")  # make it accessible
+        result = subprocess.run(
+            ["gws", "auth", "status"],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode != 0:
+            print("\n⚠️  gws auth check failed. Run: gws auth login -s drive,gmail,sheets")
+            return False
+        status = json.loads(result.stdout)
+        if not status.get("token_valid"):
+            print("\n⚠️  gws token is invalid. Run: gws auth login -s drive,gmail,sheets")
+            return False
+        return True
+    except (FileNotFoundError, json.JSONDecodeError):
+        print("\n⚠️  gws not found. Run: gws auth login -s drive,gmail,sheets")
+        return False
+
+
+# ── Spreadsheet management ────────────────────────────────────────────────────
+
+def _find_spreadsheet() -> str | None:
+    """Search Drive for the spreadsheet by name, return its ID or None."""
+    data = _gws([
+        "drive", "files", "list",
+        "--params", json.dumps({
+            "q": f'name="{SPREADSHEET_NAME}" and mimeType="application/vnd.google-apps.spreadsheet" and trashed=false',
+            "fields": "files(id,name)",
+            "pageSize": 5,
+        })
+    ])
+    if data and data.get("files"):
+        return data["files"][0]["id"]
+    return None
+
+
+def _create_spreadsheet() -> str | None:
+    """Create a new spreadsheet and return its ID."""
+    data = _gws(["sheets", "spreadsheets", "create"], body={
+        "properties": {"title": SPREADSHEET_NAME},
+        "sheets": [{"properties": {"title": SHEET_NAME}}],
+    })
+    if data and "spreadsheetId" in data:
+        sid = data["spreadsheetId"]
         print(f"   📊 Created new spreadsheet: {SPREADSHEET_NAME}")
-
-    try:
-        ws = sh.worksheet(SHEET_NAME)
-    except gspread.WorksheetNotFound:
-        ws = sh.add_worksheet(SHEET_NAME, rows=5000, cols=len(HEADER))
-        ws.append_row(HEADER, value_input_option="USER_ENTERED")
-        # Bold the header
-        ws.format("A1:S1", {"textFormat": {"bold": True}})
-        print(f"   📋 Created sheet '{SHEET_NAME}' with header row")
-
-    return sh, ws
+        # Write header row
+        _append_rows(sid, [HEADER])
+        # Bold the header via batchUpdate
+        _bold_header(sid, data["sheets"][0]["properties"]["sheetId"])
+        return sid
+    return None
 
 
-def _existing_run_ids(ws):
-    """Return a set of RunIDs already written to the sheet (avoids duplicates)."""
-    try:
-        col = ws.col_values(1)  # RunID column
-        return set(col[1:])     # skip header
-    except Exception:
+def _bold_header(spreadsheet_id: str, sheet_id: int) -> None:
+    _gws(["sheets", "spreadsheets", "batchUpdate",
+          "--params", json.dumps({"spreadsheetId": spreadsheet_id})],
+         body={"requests": [{
+             "repeatCell": {
+                 "range": {
+                     "sheetId": sheet_id,
+                     "startRowIndex": 0, "endRowIndex": 1,
+                 },
+                 "cell": {"userEnteredFormat": {"textFormat": {"bold": True}}},
+                 "fields": "userEnteredFormat.textFormat.bold",
+             }
+         }]})
+
+
+def _ensure_sheet_tab(spreadsheet_id: str) -> None:
+    """Add the Predictions tab if it doesn't already exist."""
+    data = _gws(["sheets", "spreadsheets", "get",
+                 "--params", json.dumps({"spreadsheetId": spreadsheet_id,
+                                         "includeGridData": False})])
+    if not data:
+        return
+    existing = [s["properties"]["title"] for s in data.get("sheets", [])]
+    if SHEET_NAME not in existing:
+        _gws(["sheets", "spreadsheets", "batchUpdate",
+              "--params", json.dumps({"spreadsheetId": spreadsheet_id})],
+             body={"requests": [{"addSheet": {"properties": {"title": SHEET_NAME}}}]})
+        _append_rows(spreadsheet_id, [HEADER])
+
+
+# ── Sheet read/write ──────────────────────────────────────────────────────────
+
+def _get_existing_run_ids(spreadsheet_id: str) -> set[str]:
+    """Read column A (RunID) to detect already-synced runs."""
+    data = _gws(["sheets", "spreadsheets", "values", "get",
+                 "--params", json.dumps({
+                     "spreadsheetId": spreadsheet_id,
+                     "range": f"{SHEET_NAME}!A2:A",
+                 })])
+    if not data:
         return set()
+    rows = data.get("values", [])
+    return {row[0] for row in rows if row}
 
 
-# ── Core sync ─────────────────────────────────────────────────────────────────
+def _append_rows(spreadsheet_id: str, rows: list[list]) -> bool:
+    """Batch-append rows to the Predictions sheet."""
+    data = _gws(["sheets", "spreadsheets", "values", "append",
+                 "--params", json.dumps({
+                     "spreadsheetId": spreadsheet_id,
+                     "range": f"{SHEET_NAME}!A1",
+                     "valueInputOption": "USER_ENTERED",
+                     "insertDataOption": "INSERT_ROWS",
+                 })],
+                body={"values": rows})
+    return data is not None
+
+
+# ── Data conversion ───────────────────────────────────────────────────────────
 
 def _run_to_rows(run: dict) -> list[list]:
-    """Convert a single prediction run dict into a list of sheet rows (one per ticket)."""
+    """Convert a single prediction-run dict into one sheet row per ticket."""
     run_id     = run.get("run_id", "?")
-    created_at = run.get("created_at", "")[:19]   # trim microseconds
+    created_at = run.get("created_at", "")[:19]
     target     = run.get("target_draw_date", "")
     budget     = run.get("budget", 0)
 
-    # evaluation data (filled by evaluator.py later)
-    summary    = run.get("evaluation_summary") or {}
-    spent      = summary.get("total_spent", budget * 2)
-    won        = summary.get("total_won", 0)
-    roi        = won - spent
+    summary = run.get("evaluation_summary") or {}
+    spent   = summary.get("total_spent", budget * 2)
+    won     = summary.get("total_won", 0)
+    roi     = won - spent
 
-    weights    = run.get("ensemble_weights", {})
-    theta      = {k: round(v.get("theta", 0), 4) for k, v in weights.items()}
+    weights = run.get("ensemble_weights", {})
+    theta   = {k: round(v.get("theta", 0), 4) for k, v in weights.items()}
 
     rows = []
     for idx, ticket in enumerate(run.get("predictions", []), start=1):
-        wb        = ticket.get("wb", [])      # white balls list
-        strategy  = ticket.get("strategy", "?")
-        mb        = ticket.get("mb", "?")
-
+        wb       = ticket.get("wb", [])
+        strategy = ticket.get("strategy", "?")
+        mb       = ticket.get("mb", "?")
         n1, n2, n3, n4, n5 = (list(wb) + ["", "", "", "", ""])[:5]
 
-        row = [
+        rows.append([
             run_id, created_at, target,
             strategy, idx,
             n1, n2, n3, n4, n5, mb,
             budget, spent, won, roi,
-            theta.get("A-hot",   ""),
-            theta.get("B-cold",  ""),
-            theta.get("C-random",""),
-            theta.get("D-hybrid",""),
-        ]
-        rows.append(row)
-
+            theta.get("A-hot",    ""),
+            theta.get("B-cold",   ""),
+            theta.get("C-random", ""),
+            theta.get("D-hybrid", ""),
+        ])
     return rows
 
 
+# ── Core sync ─────────────────────────────────────────────────────────────────
+
 def sync_predictions(run_id: str | None = None, verbose: bool = True) -> bool:
     """
-    Sync predictions.json to Google Sheets.
+    Sync predictions.json → Google Sheets via gws CLI.
 
     Args:
-        run_id: If given, only sync that specific run. Otherwise sync all new runs.
+        run_id:  If given, only sync that specific run.
         verbose: Print progress to stdout.
     Returns:
-        True if sync succeeded, False on any error (non-fatal — predictor continues).
+        True if sync succeeded, False on any error (non-fatal).
     """
     if verbose:
         print("\n📊 Syncing to Google Sheets …")
 
-    # Load predictions
+    # ── Check gws auth ────────────────────────────────────────────────────────
+    if not _check_gws():
+        return False
+
+    # ── Load predictions ──────────────────────────────────────────────────────
     if not PREDICTIONS_FILE.exists():
         if verbose:
             print("   ⚠️  predictions.json not found — skipping sync")
@@ -191,7 +244,6 @@ def sync_predictions(run_id: str | None = None, verbose: bool = True) -> bool:
     with open(PREDICTIONS_FILE) as f:
         data = json.load(f)
 
-    # Normalise to list
     runs = data if isinstance(data, list) else list(data.values())
 
     if run_id:
@@ -201,41 +253,50 @@ def sync_predictions(run_id: str | None = None, verbose: bool = True) -> bool:
                 print(f"   ⚠️  Run {run_id} not found in predictions.json")
             return False
 
-    # Authenticate
-    creds = _get_credentials()
-    if creds is None:
-        return False  # setup instructions already printed
+    # ── Find or create spreadsheet ────────────────────────────────────────────
+    sid = _find_spreadsheet()
+    if sid:
+        _ensure_sheet_tab(sid)
+    else:
+        sid = _create_spreadsheet()
+        if not sid:
+            if verbose:
+                print("   ❌  Could not create spreadsheet")
+            return False
 
-    gc = gspread.authorize(creds)
-    sh, ws = _open_or_create_sheet(gc)
-
-    existing = _existing_run_ids(ws)
-    new_runs = [r for r in runs if r.get("run_id") not in existing]
+    # ── Deduplicate ───────────────────────────────────────────────────────────
+    existing   = _get_existing_run_ids(sid)
+    new_runs   = [r for r in runs if r.get("run_id") not in existing]
 
     if not new_runs:
         if verbose:
-            print("   ✅  Sheet already up to date — nothing new to add")
+            print("   ✅  Sheet already up to date — nothing to add")
         return True
 
-    # Batch-append all rows at once (much faster than one-by-one)
+    # ── Append ────────────────────────────────────────────────────────────────
     all_rows = []
     for run in new_runs:
         all_rows.extend(_run_to_rows(run))
 
-    ws.append_rows(all_rows, value_input_option="USER_ENTERED")
+    ok = _append_rows(sid, all_rows)
+    url = f"https://docs.google.com/spreadsheets/d/{sid}"
 
-    url = f"https://docs.google.com/spreadsheets/d/{sh.id}"
     if verbose:
-        print(f"   ✅  Added {len(all_rows)} ticket rows ({len(new_runs)} run(s))")
-        print(f"   🔗  {url}")
+        if ok:
+            print(f"   ✅  Added {len(all_rows)} ticket rows ({len(new_runs)} run(s))")
+            print(f"   🔗  {url}")
+        else:
+            print("   ❌  Failed to append rows to sheet")
 
-    return True
+    return ok
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Sync Mega Millions predictions → Google Sheets")
+    parser = argparse.ArgumentParser(
+        description="Sync Mega Millions predictions → Google Sheets (via gws)"
+    )
     parser.add_argument("--run-id", help="Sync only this specific run ID")
     args = parser.parse_args()
 

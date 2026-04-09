@@ -1,0 +1,44 @@
+{
+    "game": "powerball",
+    "draws": 41,
+    "sum": {
+        "mean": 174.9,
+        "std": 35.08,
+        "low_1sigma": 139.8,
+        "high_1sigma": 210.0,
+        "low_1_5sigma": 122.3,
+        "high_1_5sigma": 227.5,
+        "low_2sigma": 104.7,
+        "high_2sigma": 245.1
+    },
+    "gap": {
+        "max_p90": 36.0,
+        "max_p95": 41.0,
+        "max_p99": 48.6
+    },
+    "parity": {
+        "distribution": {
+            "0": 0.0488,
+            "1": 0.1463,
+            "2": 0.2683,
+            "3": 0.2683,
+            "4": 0.2439,
+            "5": 0.0244
+        },
+        "safe_even_min": 0,
+        "safe_even_max": 5
+    },
+    "high_low": {
+        "midpoint": 35.0,
+        "distribution": {
+            "0": 0.0,
+            "1": 0.0976,
+            "2": 0.439,
+            "3": 0.3659,
+            "4": 0.0732,
+            "5": 0.0244
+        },
+        "safe_high_min": 1,
+        "safe_high_max": 5
+    }
+}

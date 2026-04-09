@@ -49,10 +49,11 @@ def _default_strategy_state() -> dict:
     }
 
 
-def load_mab_state() -> dict:
-    """Load mab_state.json, or return fresh defaults if it doesn't exist."""
-    if os.path.exists(MAB_STATE_FILE):
-        with open(MAB_STATE_FILE, "r") as f:
+def load_mab_state(path: str | None = None) -> dict:
+    """Load MAB state JSON, or return fresh defaults if it doesn't exist."""
+    state_file = path or MAB_STATE_FILE
+    if os.path.exists(state_file):
+        with open(state_file, "r") as f:
             state = json.load(f)
         # Back-fill any strategies that were added after initial creation
         for s in STRATEGIES:
@@ -69,11 +70,14 @@ def load_mab_state() -> dict:
     }
 
 
-def save_mab_state(state: dict) -> None:
-    """Persist mab_state.json."""
+
+def save_mab_state(state: dict, path: str | None = None) -> None:
+    """Persist MAB state to disk (per-game path support)."""
     import datetime
+    state_file = path or MAB_STATE_FILE
+    os.makedirs(os.path.dirname(state_file) if os.path.dirname(state_file) else ".", exist_ok=True)
     state["last_updated"] = datetime.datetime.now().isoformat()
-    with open(MAB_STATE_FILE, "w") as f:
+    with open(state_file, "w") as f:
         json.dump(state, f, indent=4)
 
 
@@ -218,8 +222,11 @@ def ensemble_wb_probs(
         for s in others:
             raw_w[s] -= deficit * (raw_w[s] / others_total) if others_total > 0 else 0
 
-    # Build composite probability map
-    composite: dict[int, float] = {n: 0.0 for n in range(1, 71)}
+    # Build composite probability map — infer key range from actual weights
+    all_keys: set[int] = set()
+    for weights in all_wb_weights.values():
+        all_keys.update(weights.keys())
+    composite: dict[int, float] = {n: 0.0 for n in sorted(all_keys)}
     for s, w in raw_w.items():
         if s not in all_wb_weights:
             continue
@@ -249,7 +256,11 @@ def ensemble_mb_probs(
         for s in others:
             raw_w[s] -= deficit * (raw_w[s] / others_total) if others_total > 0 else 0
 
-    composite: dict[int, float] = {n: 0.0 for n in range(1, 26)}
+    # Build composite probability map — infer key range from actual weights
+    all_keys: set[int] = set()
+    for weights in all_mb_weights.values():
+        all_keys.update(weights.keys())
+    composite: dict[int, float] = {n: 0.0 for n in sorted(all_keys)}
     for s, w in raw_w.items():
         if s not in all_mb_weights:
             continue

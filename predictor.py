@@ -1,21 +1,18 @@
 """
-predictor.py – Mega Millions Quantitative Predictor v4.0
-=========================================================
-Upgrade from v3.0 heuristic to full quantitative model:
-
-  1. Thompson Sampling   → decides how many tickets per strategy
-  2. Kelly Criterion     → decides total ticket budget from virtual bankroll
-  3. EMA ROI             → weights for Ensemble (strategies as voters)
-  4. Ensemble Voting     → single fused probability map for number selection
+predictor.py – Multi-Game Quantitative Predictor v6.0
+======================================================
+Upgrades from v4.0:
+  - Supports any game via --game argument (mega_millions / powerball / lotto)
+  - Uses data-driven RejectionFilters loaded from calibration JSON (v6.0 filters.py)
+  - Falls back to mathematical defaults if calibration hasn't been run yet.
+  - Tags predictions with "source": "ensemble_v6"
 
 Each ticket is drawn from the ENSEMBLE distribution (all strategies vote),
 so there are no longer purely "hot" or "cold" tickets — every ticket
 reflects the combined wisdom of all strategies, weighted by their track record.
-
-For traceability, the ensemble weights used at generation time are recorded
-alongside each ticket in predictions.json.
 """
 
+import argparse
 import json
 import os
 import random
@@ -24,6 +21,9 @@ from datetime import timedelta
 
 import pandas as pd
 
+from games import get_game, list_games
+from games.base_game import BaseGame
+from filters import RejectionFilters
 from utils import load_history, calculate_frequency, calculate_overdue
 from mab_engine import (
     load_mab_state,
@@ -37,15 +37,13 @@ from mab_engine import (
     TICKET_COST,
 )
 
-PREDICTIONS_FILE = "predictions.json"
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def get_next_draw_date(latest_draw_date: pd.Timestamp) -> str:
-    """Return the next Mega Millions draw date (Tue=1 or Fri=4)."""
+def get_next_draw_date(latest_draw_date: pd.Timestamp, game: BaseGame) -> str:
+    """Return the next draw date for the given game."""
     current = latest_draw_date + timedelta(days=1)
-    while current.weekday() not in (1, 4):
+    while current.weekday() not in game.draw_days:
         current += timedelta(days=1)
     return current.strftime("%Y-%m-%d")
 
@@ -70,70 +68,92 @@ def weighted_sample_no_replace(population: list, weights: list, k: int) -> list:
     return sorted(result)
 
 
-# ── Strategy Weight Builders (unchanged from v3) ──────────────────────────────
+# ── Strategy Weight Builders ──────────────────────────────────────────────────
 
-def build_hot_weights(wb_counts, mb_counts):
-    """Strategy A: prefer frequently drawn numbers."""
-    wb_w = {i: max(1, wb_counts.get(i, 0) * 3) for i in range(1, 71)}
-    mb_w = {i: max(1, mb_counts.get(i, 0) * 3) for i in range(1, 26)}
-    return wb_w, mb_w
-
-
-def build_cold_weights(wb_last_seen, mb_last_seen):
-    """Strategy B: prefer numbers that haven't appeared recently."""
-    wb_w = {i: max(1, wb_last_seen.get(i, 999) / 5.0) for i in range(1, 71)}
-    mb_w = {i: max(1, mb_last_seen.get(i, 999) / 5.0) for i in range(1, 26)}
-    return wb_w, mb_w
+def build_hot_weights(wb_counts, sb_counts, game: BaseGame):
+    wb_w = {i: max(1, wb_counts.get(i, 0) * 3) for i in game.all_wb_numbers()}
+    sb_w = {i: max(1, sb_counts.get(i, 0) * 3) for i in game.all_sb_numbers()} if game.sb_col else {}
+    return wb_w, sb_w
 
 
-def build_hybrid_weights(wb_counts, mb_counts, wb_last_seen, mb_last_seen):
-    """Strategy D: hot × cold blended (freq * overdue)."""
+def build_cold_weights(wb_last_seen, sb_last_seen, game: BaseGame):
+    wb_w = {i: max(1, wb_last_seen.get(i, 999) / 5.0) for i in game.all_wb_numbers()}
+    sb_w = {i: max(1, sb_last_seen.get(i, 999) / 5.0) for i in game.all_sb_numbers()} if game.sb_col else {}
+    return wb_w, sb_w
+
+
+def build_hybrid_weights(wb_counts, sb_counts, wb_last_seen, sb_last_seen, game: BaseGame):
     wb_w = {
         i: max(1, wb_counts.get(i, 0)) * max(1, wb_last_seen.get(i, 999) / 5.0)
-        for i in range(1, 71)
+        for i in game.all_wb_numbers()
     }
-    mb_w = {
-        i: max(1, mb_counts.get(i, 0)) * max(1, mb_last_seen.get(i, 999) / 5.0)
-        for i in range(1, 26)
-    }
-    return wb_w, mb_w
+    sb_w = {
+        i: max(1, sb_counts.get(i, 0)) * max(1, sb_last_seen.get(i, 999) / 5.0)
+        for i in game.all_sb_numbers()
+    } if game.sb_col else {}
+    return wb_w, sb_w
 
 
-def build_uniform_weights():
-    """Strategy C: pure random (control group)."""
-    return {i: 1 for i in range(1, 71)}, {i: 1 for i in range(1, 26)}
+def build_uniform_weights(game: BaseGame):
+    return {i: 1 for i in game.all_wb_numbers()}, {i: 1 for i in game.all_sb_numbers()}
 
 
-# ── Ensemble Ticket Drawing ───────────────────────────────────────────────────
+# ── Ensemble Ticket Drawing with v6 Rejection Sampling ───────────────────────
 
 def draw_ensemble_ticket(
     wb_prob_map: dict[int, float],
-    mb_prob_map: dict[int, float],
+    sb_prob_map: dict[int, float],
+    game: BaseGame,
+    filters: RejectionFilters,
 ) -> dict:
     """
-    Draw one ticket from the composite ensemble probability maps.
-    White balls: 5 unique numbers from 1-70 (weighted, no replacement).
-    Mega Ball:   1 number from 1-25 (weighted).
+    Draw one ticket using rejection sampling.
+    Tries up to 10,000 times to find a combination that passes all filters.
+    Falls back to unfiltered draw if needed.
     """
     nums    = list(wb_prob_map.keys())
     wts     = list(wb_prob_map.values())
-    wb_draw = weighted_sample_no_replace(nums, wts, 5)
+    mid     = (game.wb_range[0] + game.wb_range[1]) / 2.0
 
-    mb_nums = list(mb_prob_map.keys())
-    mb_wts  = list(mb_prob_map.values())
-    mb_draw = random.choices(mb_nums, weights=mb_wts, k=1)[0]
+    # Special ball
+    has_sb = bool(game.sb_col) and sb_prob_map
+    sb_nums = list(sb_prob_map.keys()) if has_sb else []
+    sb_wts  = list(sb_prob_map.values()) if has_sb else []
 
-    return {"wb": wb_draw, "mb": mb_draw}
+    for _ in range(10_000):
+        wb_draw = weighted_sample_no_replace(nums, wts, game.wb_count)
+        if filters.evaluate_all(wb_draw, mid):
+            sb_draw = random.choices(sb_nums, weights=sb_wts, k=1)[0] if has_sb else None
+            return {"wb": wb_draw, "mb": sb_draw}
+
+    # Fallback (no filter)
+    wb_draw = weighted_sample_no_replace(nums, wts, game.wb_count)
+    sb_draw = random.choices(sb_nums, weights=sb_wts, k=1)[0] if has_sb else None
+    return {"wb": wb_draw, "mb": sb_draw}
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def main() -> None:
-    # ── Load historical draw data ─────────────────────────────────────────
+def main(game: BaseGame) -> None:
+    print(f"\n🎰 Mega Millions Engine v6.0 — {game.name}")
+    print(f"   CSV          : {game.csv_path}")
+    print(f"   Predictions  : {game.predictions_path}")
+    print(f"   MAB state    : {game.mab_state_path}")
+
+    # ── Load filters ─────────────────────────────────────────────────────────
     try:
-        df = load_history()
+        filters = RejectionFilters.from_game(game)
+        print(f"   Filters (cal): {filters}")
     except FileNotFoundError:
-        print("Error: megamillions_history.csv not found. Run scraper.py first.")
+        filters = RejectionFilters.default_fallback(game)
+        print(f"   Filters (est): {filters}")
+        print("   ⚠️  No calibration file. Run: python3.13 calibrate.py --game " + game.slug)
+
+    # ── Load historical draw data ─────────────────────────────────────────────
+    try:
+        df = load_history(game)
+    except FileNotFoundError:
+        print(f"Error: {game.csv_path} not found. Run scraper.py --game {game.slug} first.")
         return
 
     if df.empty:
@@ -141,63 +161,58 @@ def main() -> None:
         return
 
     latest_draw_date = df["DrawDate"].iloc[0]
-    next_draw_date   = get_next_draw_date(latest_draw_date)
-    print(f"Latest real draw   : {latest_draw_date.strftime('%Y-%m-%d')}")
-    print(f"Predicting for     : {next_draw_date}")
-    print(f"Historical records : {len(df)} draws")
+    next_draw_date   = get_next_draw_date(latest_draw_date, game)
+    print(f"\n   Latest real draw   : {latest_draw_date.strftime('%Y-%m-%d')}")
+    print(f"   Predicting for     : {next_draw_date}")
+    print(f"   Historical records : {len(df)} draws")
 
-    # ── Load existing prediction runs ─────────────────────────────────────
+    # ── Load existing prediction runs ─────────────────────────────────────────
+    os.makedirs(os.path.dirname(game.predictions_path) if os.path.dirname(game.predictions_path) else ".", exist_ok=True)
     all_runs: list = []
-    if os.path.exists(PREDICTIONS_FILE):
-        with open(PREDICTIONS_FILE, "r") as f:
+    if os.path.exists(game.predictions_path):
+        with open(game.predictions_path, "r") as f:
             try:
                 all_runs = json.load(f)
             except json.JSONDecodeError:
                 pass
 
-    # ── Load MAB state ────────────────────────────────────────────────────
-    mab_state = load_mab_state()
+    # ── Load MAB state ────────────────────────────────────────────────────────
+    mab_state = load_mab_state(game.mab_state_path)
     is_cold_start = mab_state["draw_count"] == 0
 
-    # ── Kelly Criterion: budget + Thompson Sampling thetas ────────────────
+    # ── Kelly Criterion + Thompson Sampling ───────────────────────────────────
     budget, thetas, kelly_fracs = kelly_budget(mab_state)
-
-    # ── Thompson Sampling: per-strategy ticket allocation ─────────────────
     allocation = allocate_tickets(budget, thetas)
-
-    # ── Print MAB report ──────────────────────────────────────────────────
     print_mab_report(mab_state, thetas, kelly_fracs)
 
     if is_cold_start:
         print("\n  ⚠️  Cold start: MAB state initialised with uniform priors.")
-        print("     Budget and allocation will diversify after the first draw.")
 
-    print(f"\n  💰 Kelly Budget : {budget} tickets  "
-          f"(virtual spend: ${budget * TICKET_COST})")
+    print(f"\n  💰 Kelly Budget : {budget} tickets  (virtual spend: ${budget * TICKET_COST})")
     print(f"  🏦 Bankroll     : ${mab_state['virtual_bankroll']:,.2f}\n")
 
-    # ── Build per-strategy weight dicts ───────────────────────────────────
-    wb_counts, mb_counts       = calculate_frequency(df)
-    wb_last_seen, mb_last_seen = calculate_overdue(df)
+    # ── Build per-strategy weight dicts ───────────────────────────────────────
+    wb_counts, sb_counts       = calculate_frequency(df, game)
+    wb_last_seen, sb_last_seen = calculate_overdue(df, game)
 
     all_wb_weights = {
-        "A-hot":    build_hot_weights(wb_counts, mb_counts)[0],
-        "B-cold":   build_cold_weights(wb_last_seen, mb_last_seen)[0],
-        "D-hybrid": build_hybrid_weights(wb_counts, mb_counts, wb_last_seen, mb_last_seen)[0],
-        "C-random": build_uniform_weights()[0],
+        "A-hot":    build_hot_weights(wb_counts, sb_counts, game)[0],
+        "B-cold":   build_cold_weights(wb_last_seen, sb_last_seen, game)[0],
+        "D-hybrid": build_hybrid_weights(wb_counts, sb_counts, wb_last_seen, sb_last_seen, game)[0],
+        "C-random": build_uniform_weights(game)[0],
     }
-    all_mb_weights = {
-        "A-hot":    build_hot_weights(wb_counts, mb_counts)[1],
-        "B-cold":   build_cold_weights(wb_last_seen, mb_last_seen)[1],
-        "D-hybrid": build_hybrid_weights(wb_counts, mb_counts, wb_last_seen, mb_last_seen)[1],
-        "C-random": build_uniform_weights()[1],
+    all_sb_weights = {
+        "A-hot":    build_hot_weights(wb_counts, sb_counts, game)[1],
+        "B-cold":   build_cold_weights(wb_last_seen, sb_last_seen, game)[1],
+        "D-hybrid": build_hybrid_weights(wb_counts, sb_counts, wb_last_seen, sb_last_seen, game)[1],
+        "C-random": build_uniform_weights(game)[1],
     }
 
-    # ── Build ENSEMBLE probability maps (fusing all strategies via EMA ROI) ──
+    # ── Build ENSEMBLE probability maps ───────────────────────────────────────
     wb_ensemble = ensemble_wb_probs(mab_state, all_wb_weights)
-    mb_ensemble = ensemble_mb_probs(mab_state, all_mb_weights)
+    sb_ensemble = ensemble_mb_probs(mab_state, all_sb_weights) if game.sb_col else {}
 
-    # ── Print allocation table ────────────────────────────────────────────
+    # ── Print allocation ──────────────────────────────────────────────────────
     print(f"  {'Strategy':<12} {'θ (TS)':>8} {'Kelly f*':>9} {'Tickets':>8}  EMA ROI")
     print("  " + "─" * 50)
     for s in STRATEGIES:
@@ -208,27 +223,25 @@ def main() -> None:
         )
     print()
 
-    # ── Draw tickets from ensemble ────────────────────────────────────────
-    # Each ticket is drawn from the SAME ensemble probability map.
-    # We label it with the "strategy" slot it was assigned to (for MAB feedback),
-    # but all numbers come from the fused distribution.
+    # ── Draw tickets from ensemble ────────────────────────────────────────────
     predictions = []
-    print(f"  {'Ticket':<6} {'Label':<12} {'Numbers':<36} MB")
+    print(f"  {'Ticket':<6} {'Label':<12} {'Numbers':<36} SB")
     print("  " + "─" * 60)
 
     ticket_num = 1
     for strategy, n_tickets in allocation.items():
         for _ in range(n_tickets):
-            ticket = draw_ensemble_ticket(wb_ensemble, mb_ensemble)
-            ticket["strategy"] = strategy   # label kept for MAB feedback
-            ticket["source"]   = "ensemble" # marks v4.0 generation mode
+            ticket = draw_ensemble_ticket(wb_ensemble, sb_ensemble, game, filters)
+            ticket["strategy"] = strategy
+            ticket["source"]   = "ensemble_v6"
             predictions.append(ticket)
 
+            sb_str = str(ticket["mb"]) if ticket["mb"] is not None else "—"
             wb_str = str(ticket["wb"]).ljust(35)
-            print(f"  {ticket_num:02d}     [{strategy:<10}] {wb_str} {ticket['mb']}")
+            print(f"  {ticket_num:02d}     [{strategy:<10}] {wb_str} {sb_str}")
             ticket_num += 1
 
-    # ── Capture ensemble weights snapshot ─────────────────────────────────
+    # ── Capture ensemble weights snapshot ─────────────────────────────────────
     ensemble_snapshot = {
         s: {
             "theta":      round(thetas[s], 6),
@@ -239,10 +252,11 @@ def main() -> None:
         for s in STRATEGIES
     }
 
-    # ── Save ──────────────────────────────────────────────────────────────
+    # ── Save predictions ──────────────────────────────────────────────────────
     run_record = {
         "run_id":           str(uuid.uuid4())[:8],
-        "version":          "4.0",
+        "version":          "6.0",
+        "game":             game.slug,
         "created_at":       pd.Timestamp.now().isoformat(),
         "target_draw_date": next_draw_date,
         "history_size":     len(df),
@@ -257,25 +271,32 @@ def main() -> None:
     }
     all_runs.append(run_record)
 
-    with open(PREDICTIONS_FILE, "w") as f:
+    with open(game.predictions_path, "w") as f:
         json.dump(all_runs, f, indent=4)
 
-    # Save MAB state (thetas are stochastic; we don't persist them,
-    # but we do persist draw_count — already correct)
-    save_mab_state(mab_state)
+    save_mab_state(mab_state, game.mab_state_path)
 
     print(
-        f"\n✅ {len(predictions)} ensemble tickets saved to {PREDICTIONS_FILE}."
-        f"\n   Run evaluator.py after the {next_draw_date} draw!"
+        f"\n✅ {len(predictions)} ensemble tickets saved to {game.predictions_path}."
+        f"\n   Run evaluator.py --game {game.slug} after the {next_draw_date} draw!"
     )
 
-    # ── Auto-sync to Google Sheets ────────────────────────────────────────────
-    try:
-        from sheets_sync import sync_predictions
-        sync_predictions(run_id=run_record["run_id"])
-    except Exception as e:
-        print(f"\n   [sheets_sync] skipped: {e}")
+    # ── Auto-sync to Google Sheets (Mega Millions only for now) ───────────────
+    if game.slug == "mega_millions":
+        try:
+            from sheets_sync import sync_predictions
+            sync_predictions(run_id=run_record["run_id"])
+        except Exception as e:
+            print(f"\n   [sheets_sync] skipped: {e}")
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Generate lottery ticket predictions.")
+    parser.add_argument(
+        "--game", "-g",
+        default="mega_millions",
+        choices=list_games(),
+        help=f"Which game to predict. Default: mega_millions",
+    )
+    args = parser.parse_args()
+    main(get_game(args.game))
