@@ -4755,7 +4755,10 @@
                 ],
                 "mb": 2,
                 "strategy": "A-hot",
-                "source": "ensemble_v6"
+                "source": "ensemble_v6",
+                "match_wbs": 1,
+                "match_mb": false,
+                "won": 0
             },
             {
                 "wb": [
@@ -4767,7 +4770,10 @@
                 ],
                 "mb": 22,
                 "strategy": "B-cold",
-                "source": "ensemble_v6"
+                "source": "ensemble_v6",
+                "match_wbs": 1,
+                "match_mb": false,
+                "won": 0
             },
             {
                 "wb": [
@@ -4779,7 +4785,10 @@
                 ],
                 "mb": 23,
                 "strategy": "C-random",
-                "source": "ensemble_v6"
+                "source": "ensemble_v6",
+                "match_wbs": 0,
+                "match_mb": false,
+                "won": 0
             },
             {
                 "wb": [
@@ -4790,6 +4799,271 @@
                     62
                 ],
                 "mb": 13,
+                "strategy": "D-hybrid",
+                "source": "ensemble_v6",
+                "match_wbs": 0,
+                "match_mb": false,
+                "won": 0
+            }
+        ],
+        "evaluated": true,
+        "evaluation_summary": {
+            "total_spent": 8,
+            "total_won": 0,
+            "net_roi": -8,
+            "by_strategy": {
+                "A-hot": {
+                    "tickets": 1,
+                    "spent": 2,
+                    "won": 0,
+                    "roi": -2
+                },
+                "B-cold": {
+                    "tickets": 1,
+                    "spent": 2,
+                    "won": 0,
+                    "roi": -2
+                },
+                "C-random": {
+                    "tickets": 1,
+                    "spent": 2,
+                    "won": 0,
+                    "roi": -2
+                },
+                "D-hybrid": {
+                    "tickets": 1,
+                    "spent": 2,
+                    "won": 0,
+                    "roi": -2
+                }
+            }
+        }
+    },
+    {
+        "run_id": "41c0df33",
+        "version": "6.0",
+        "game": "mega_millions",
+        "created_at": "2026-04-15T11:06:09.614010",
+        "target_draw_date": "2026-04-17",
+        "history_size": 2518,
+        "budget": 3,
+        "bankroll_at_pred": 9662,
+        "allocation": {
+            "A-hot": 1,
+            "B-cold": 1,
+            "C-random": 1,
+            "D-hybrid": 1
+        },
+        "ensemble_weights": {
+            "A-hot": {
+                "theta": 0.100337,
+                "kelly_f": 0.0,
+                "ema_roi": -0.820645,
+                "allocation": 1
+            },
+            "B-cold": {
+                "theta": 0.155437,
+                "kelly_f": 0.0,
+                "ema_roi": -0.991397,
+                "allocation": 1
+            },
+            "C-random": {
+                "theta": 0.055986,
+                "kelly_f": 0.0,
+                "ema_roi": -0.899158,
+                "allocation": 1
+            },
+            "D-hybrid": {
+                "theta": 0.04674,
+                "kelly_f": 0.0,
+                "ema_roi": -0.993266,
+                "allocation": 1
+            }
+        },
+        "mab_draw_count": 18,
+        "predictions": [
+            {
+                "wb": [
+                    9,
+                    10,
+                    11,
+                    56,
+                    62
+                ],
+                "mb": 25,
+                "strategy": "A-hot",
+                "source": "ensemble_v6",
+                "match_wbs": 1,
+                "match_mb": false,
+                "won": 0
+            },
+            {
+                "wb": [
+                    11,
+                    33,
+                    49,
+                    54,
+                    67
+                ],
+                "mb": 20,
+                "strategy": "B-cold",
+                "source": "ensemble_v6",
+                "match_wbs": 1,
+                "match_mb": false,
+                "won": 0
+            },
+            {
+                "wb": [
+                    25,
+                    32,
+                    46,
+                    54,
+                    64
+                ],
+                "mb": 3,
+                "strategy": "C-random",
+                "source": "ensemble_v6",
+                "match_wbs": 0,
+                "match_mb": false,
+                "won": 0
+            },
+            {
+                "wb": [
+                    8,
+                    9,
+                    20,
+                    23,
+                    64
+                ],
+                "mb": 25,
+                "strategy": "D-hybrid",
+                "source": "ensemble_v6",
+                "match_wbs": 0,
+                "match_mb": false,
+                "won": 0
+            }
+        ],
+        "evaluated": true,
+        "evaluation_summary": {
+            "total_spent": 8,
+            "total_won": 0,
+            "net_roi": -8,
+            "by_strategy": {
+                "A-hot": {
+                    "tickets": 1,
+                    "spent": 2,
+                    "won": 0,
+                    "roi": -2
+                },
+                "B-cold": {
+                    "tickets": 1,
+                    "spent": 2,
+                    "won": 0,
+                    "roi": -2
+                },
+                "C-random": {
+                    "tickets": 1,
+                    "spent": 2,
+                    "won": 0,
+                    "roi": -2
+                },
+                "D-hybrid": {
+                    "tickets": 1,
+                    "spent": 2,
+                    "won": 0,
+                    "roi": -2
+                }
+            }
+        }
+    },
+    {
+        "run_id": "59fe3516",
+        "version": "6.0",
+        "game": "mega_millions",
+        "created_at": "2026-04-20T21:19:30.299558",
+        "target_draw_date": "2026-04-21",
+        "history_size": 2519,
+        "budget": 3,
+        "bankroll_at_pred": 9654,
+        "allocation": {
+            "A-hot": 1,
+            "B-cold": 1,
+            "C-random": 1,
+            "D-hybrid": 1
+        },
+        "ensemble_weights": {
+            "A-hot": {
+                "theta": 0.094725,
+                "kelly_f": 0.0,
+                "ema_roi": -0.874452,
+                "allocation": 1
+            },
+            "B-cold": {
+                "theta": 0.075596,
+                "kelly_f": 0.0,
+                "ema_roi": -0.993978,
+                "allocation": 1
+            },
+            "C-random": {
+                "theta": 0.014461,
+                "kelly_f": 0.0,
+                "ema_roi": -0.929411,
+                "allocation": 1
+            },
+            "D-hybrid": {
+                "theta": 0.093027,
+                "kelly_f": 0.0,
+                "ema_roi": -0.995286,
+                "allocation": 1
+            }
+        },
+        "mab_draw_count": 19,
+        "predictions": [
+            {
+                "wb": [
+                    14,
+                    20,
+                    23,
+                    56,
+                    59
+                ],
+                "mb": 6,
+                "strategy": "A-hot",
+                "source": "ensemble_v6"
+            },
+            {
+                "wb": [
+                    27,
+                    30,
+                    38,
+                    59,
+                    68
+                ],
+                "mb": 22,
+                "strategy": "B-cold",
+                "source": "ensemble_v6"
+            },
+            {
+                "wb": [
+                    25,
+                    27,
+                    28,
+                    29,
+                    48
+                ],
+                "mb": 17,
+                "strategy": "C-random",
+                "source": "ensemble_v6"
+            },
+            {
+                "wb": [
+                    8,
+                    9,
+                    10,
+                    36,
+                    63
+                ],
+                "mb": 23,
                 "strategy": "D-hybrid",
                 "source": "ensemble_v6"
             }

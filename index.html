@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MegaMillions Engine — Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #08090d;
+      --surface: #10121a;
+      --surface2: #161927;
+      --border: rgba(255,255,255,0.07);
+      --gold: #f5c842;
+      --gold2: #ffb800;
+      --red: #fc3c5d;
+      --green: #22d87a;
+      --blue: #4f8ef7;
+      --purple: #a855f7;
+      --text: #e8eaf0;
+      --muted: #6b7280;
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #0d0f1a 0%, #161927 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 24px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logo-icon {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 0 24px rgba(245,200,66,0.3);
+    }
+    .logo h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+    .logo span { color: var(--gold); }
+    .badge {
+      background: rgba(245,200,66,0.12);
+      border: 1px solid rgba(245,200,66,0.25);
+      color: var(--gold);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 999px;
+      letter-spacing: 0.5px;
+    }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    #refresh-btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    #refresh-btn:hover { background: rgba(255,255,255,0.1); }
+
+    /* ── Layout ── */
+    main { max-width: 1300px; margin: 0 auto; padding: 40px 40px 80px; }
+
+    /* ── Sections ── */
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+    }
+    .card-sm { padding: 20px 24px; }
+
+    /* ── Stat grid ── */
+    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 40px; }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.15); }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: var(--radius) var(--radius) 0 0;
+    }
+    .stat-card.gold::before { background: linear-gradient(90deg, var(--gold), var(--gold2)); }
+    .stat-card.green::before { background: linear-gradient(90deg, #22d87a, #0fba68); }
+    .stat-card.red::before { background: linear-gradient(90deg, #fc3c5d, #e0264a); }
+    .stat-card.blue::before { background: linear-gradient(90deg, #4f8ef7, #2563eb); }
+    .stat-label { font-size: 12px; color: var(--muted); font-weight: 500; margin-bottom: 10px; }
+    .stat-value { font-size: 32px; font-weight: 800; letter-spacing: -1px; font-family: 'JetBrains Mono', monospace; }
+    .stat-value.gold { color: var(--gold); }
+    .stat-value.green { color: var(--green); }
+    .stat-value.red { color: var(--red); }
+    .stat-value.blue { color: var(--blue); }
+    .stat-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+    /* ── Predictions section ── */
+    .predictions-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 40px; }
+    .ticket-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .ticket-card:hover { transform: translateY(-2px); border-color: rgba(79,142,247,0.3); }
+    .ticket-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .ticket-num {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .strategy-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 999px;
+      letter-spacing: 0.5px;
+    }
+    .strategy-A { background: rgba(245,200,66,0.15); color: var(--gold); border: 1px solid rgba(245,200,66,0.3); }
+    .strategy-B { background: rgba(168,85,247,0.15); color: var(--purple); border: 1px solid rgba(168,85,247,0.3); }
+    .strategy-C { background: rgba(79,142,247,0.15); color: var(--blue); border: 1px solid rgba(79,142,247,0.3); }
+    .strategy-D { background: rgba(34,216,122,0.15); color: var(--green); border: 1px solid rgba(34,216,122,0.3); }
+
+    /* ── Lottery balls ── */
+    .balls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .ball {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+      position: relative;
+      transition: transform 0.2s;
+      cursor: default;
+    }
+    .ball:hover { transform: scale(1.08); }
+    .ball-white {
+      background: linear-gradient(145deg, #ffffff, #d0d5e0);
+      color: #1a1a2e;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.8);
+    }
+    .ball-gold {
+      background: linear-gradient(145deg, var(--gold), #d4a800);
+      color: #1a1a00;
+      box-shadow: 0 4px 20px rgba(245,200,66,0.5), inset 0 1px 2px rgba(255,255,255,0.6);
+    }
+    .ball-divider {
+      width: 6px; height: 6px;
+      background: var(--border);
+      border-radius: 50%;
+      margin: 0 4px;
+    }
+
+    /* ── Draw date hero ── */
+    .draw-hero {
+      background: linear-gradient(135deg, rgba(245,200,66,0.08) 0%, rgba(245,200,66,0.02) 100%);
+      border: 1px solid rgba(245,200,66,0.2);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      margin-bottom: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .draw-hero-left h2 { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+    .draw-hero-left h2 span { color: var(--gold); }
+    .draw-hero-left p { color: var(--muted); font-size: 14px; margin-top: 6px; }
+    .countdown {
+      text-align: right;
+    }
+    .countdown-val { font-size: 40px; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: var(--gold); }
+    .countdown-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    /* ── Strategy table ── */
+    .strategy-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 40px; }
+    .strategy-row {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+    }
+    .strategy-row-header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+    }
+    .strategy-name { font-size: 15px; font-weight: 700; }
+    .roi-bar-wrap { margin-top: 10px; }
+    .roi-bar-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .roi-bar-bg { height: 6px; background: rgba(255,255,255,0.07); border-radius: 999px; overflow: hidden; }
+    .roi-bar-fill { height: 100%; border-radius: 999px; transition: width 1s ease; }
+    .stat-row { display: flex; justify-content: space-between; font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-row-val { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+    /* ── Chart ── */
+    .chart-wrap { position: relative; height: 300px; margin-bottom: 40px; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 40px; }
+
+    /* ── History table ── */
+    .table-wrap { overflow-x: auto; margin-bottom: 40px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead tr { background: rgba(255,255,255,0.03); }
+    th { padding: 12px 16px; text-align: left; font-weight: 600; color: var(--muted); font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+    td { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .ball-mini {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      margin: 0 2px;
+    }
+    .ball-mini-w { background: linear-gradient(145deg, #eee, #bbb); color: #111; }
+    .ball-mini-g { background: linear-gradient(145deg, var(--gold), #c8a000); color: #111; }
+
+    /* ── Loading / Error ── */
+    .loading {
+      display: flex; align-items: center; justify-content: center;
+      height: 60vh; flex-direction: column; gap: 16px;
+    }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.4s ease both; }
+
+    @media (max-width: 900px) {
+      header { padding: 16px 20px; }
+      main { padding: 24px 20px 60px; }
+      .stat-grid { grid-template-columns: repeat(2, 1fr); }
+      .predictions-grid, .strategy-grid, .two-col { grid-template-columns: 1fr; }
+      .draw-hero { flex-direction: column; gap: 20px; }
+      .countdown { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🎰</div>
+      <h1>Mega<span>Millions</span> Engine</h1>
+    </div>
+    <div class="header-right">
+      <span class="badge" id="version-badge">v6.0</span>
+      <button id="refresh-btn" onclick="loadData()">↻ Refresh</button>
+    </div>
+  </header>
+
+  <main id="app">
+    <div class="loading">
+      <div class="spinner"></div>
+      <p style="color: var(--muted); font-size:14px;">Loading engine data…</p>
+    </div>
+  </main>
+
+  <script>
+    // ── Helpers ────────────────────────────────────────────────────────────────
+    const fmt = (n, d=2) => typeof n === 'number' ? n.toFixed(d) : '—';
+    const fmtCur = n => `$${Math.abs(n).toLocaleString()}`;
+    const stratColors = {
+      'A-hot':   { main: '#f5c842', cls: 'A', label: 'Hot Numbers' },
+      'B-cold':  { main: '#a855f7', cls: 'B', label: 'Cold Numbers' },
+      'C-random':{ main: '#4f8ef7', cls: 'C', label: 'Random' },
+      'D-hybrid':{ main: '#22d87a', cls: 'D', label: 'Hybrid' },
+    };
+
+    function countdown(targetDate) {
+      const now = new Date();
+      const draw = new Date(targetDate + 'T23:00:00');
+      const diff = draw - now;
+      if (diff <= 0) return 'Draw passed';
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      return `${h}h ${m}m`;
+    }
+
+    // ── Main loader ─────────────────────────────────────────────────────────────
+    async function loadData() {
+      const app = document.getElementById('app');
+      app.innerHTML = `<div class="loading"><div class="spinner"></div><p style="color:var(--muted);font-size:14px">Loading…</p></div>`;
+
+      let preds, mab;
+      try {
+        const [pr, mr] = await Promise.all([
+          fetch('data/mega/predictions.json?_=' + Date.now()),
+          fetch('data/mega/mab_state.json?_=' + Date.now()),
+        ]);
+        preds = await pr.json();
+        mab = await mr.json();
+      } catch(e) {
+        app.innerHTML = `<div class="loading"><p style="color:var(--red);font-size:15px">⚠ Could not load data files. Make sure the server is running from the megamillions-engine directory.</p><pre style="color:var(--muted);font-size:12px;margin-top:12px">${e.message}</pre></div>`;
+        return;
+      }
+
+      // Latest prediction run
+      const latest = preds[preds.length - 1];
+      // Previous evaluated runs for history
+      const evaluated = preds.filter(r => r.evaluated && r.evaluation_summary);
+
+      // ── Cumulative stats from all evaluated runs ──────────────────────────
+      let totalSpent = 0, totalWon = 0, totalTickets = 0;
+      const stratStats = {};
+      for (const r of evaluated) {
+        const es = r.evaluation_summary;
+        totalSpent += (es.total_spent || 0);
+        totalWon   += (es.total_won   || 0);
+        totalTickets += (es.tickets || 0);
+        for (const [k, v] of Object.entries(es.by_strategy || {})) {
+          if (!stratStats[k]) stratStats[k] = { spent: 0, won: 0, tickets: 0 };
+          stratStats[k].spent   += (v.spent || 0);
+          stratStats[k].won     += (v.won   || 0);
+          stratStats[k].tickets += (v.tickets || 0);
+        }
+      }
+
+      // Fallback: use MAB lifetime data if no evaluated runs
+      const mabStrategies = mab.strategies || {};
+      if (totalSpent === 0) {
+        for (const [k, v] of Object.entries(mabStrategies)) {
+          totalSpent += v.lifetime_tickets * 2;
+          totalWon   += v.lifetime_won;
+          if (!stratStats[k]) stratStats[k] = { spent: 0, won: 0, tickets: 0 };
+          stratStats[k].spent   = v.lifetime_tickets * 2;
+          stratStats[k].won     = v.lifetime_won;
+          stratStats[k].tickets = v.lifetime_tickets;
+        }
+      }
+
+      const netROI = totalWon - totalSpent;
+
+      // ── ROI history per draw (for chart) ────────────────────
+      const roiHistory = evaluated.map(r => ({
+        date: r.target_draw_date,
+        roi: (r.evaluation_summary?.total_won || 0) - (r.evaluation_summary?.total_spent || 0),
+      }));
+
+      // ── Winning draws detail ─────────────────────────────────────
+      const winningDraws = evaluated
+        .filter(r => (r.evaluation_summary?.total_won || 0) > 0)
+        .sort((a, b) => b.target_draw_date.localeCompare(a.target_draw_date));
+
+      // ── Build DOM ─────────────────────────────────────────────────────────
+      const ticketCards = latest.predictions.map((t, i) => {
+        const sc = stratColors[t.strategy] || { main: '#888', cls: 'A', label: t.strategy };
+        const balls = t.wb.map(n => `<div class="ball ball-white">${n}</div>`).join('');
+        const mb    = `<div class="ball ball-gold">${t.mb}</div>`;
+        return `
+          <div class="ticket-card fade-in" style="animation-delay:${i*0.07}s">
+            <div class="ticket-header">
+              <span class="ticket-num">Ticket ${String(i+1).padStart(2,'0')}</span>
+              <span class="strategy-badge strategy-${sc.cls}">${t.strategy} · ${sc.label}</span>
+            </div>
+            <div class="balls">${balls}<div class="ball-divider"></div>${mb}</div>
+          </div>`;
+      }).join('');
+
+      const strategyCards = Object.entries(mabStrategies).map(([k, v]) => {
+        const sc = stratColors[k] || { main: '#888', cls: 'A' };
+        const emaRoi = v.ema_roi ?? 0;
+        const barPct = Math.max(0, Math.min(100, (1 + emaRoi) * 100));
+        const ss = stratStats[k] || { spent: 0, won: 0, tickets: 0 };
+        const roi = ss.won - ss.spent;
+        const roiColor = roi >= 0 ? 'var(--green)' : 'var(--red)';
+        return `
+          <div class="strategy-row">
+            <div class="strategy-row-header">
+              <span class="strategy-name" style="color:${sc.main}">${k}</span>
+              <span class="strategy-badge strategy-${sc.cls}">${sc.label || k}</span>
+            </div>
+            <div class="stat-row"><span>Tickets</span><span class="stat-row-val">${v.lifetime_tickets}</span></div>
+            <div class="stat-row"><span>Lifetime Won</span><span class="stat-row-val" style="color:var(--green)">$${v.lifetime_won}</span></div>
+            <div class="stat-row"><span>α / β</span><span class="stat-row-val">${v.alpha} / ${v.beta}</span></div>
+            <div class="stat-row"><span>EMA ROI</span><span class="stat-row-val" style="color:${emaRoi>=-0.5?'var(--gold)':'var(--red)'}">${(emaRoi*100).toFixed(1)}%</span></div>
+            <div class="roi-bar-wrap">
+              <div class="roi-bar-label"><span>Win rate</span><span>${barPct.toFixed(1)}%</span></div>
+              <div class="roi-bar-bg"><div class="roi-bar-fill" style="width:${barPct}%;background:${sc.main}"></div></div>
+            </div>
+          </div>`;
+      }).join('');
+
+      // Recent draws table
+      const histRows = evaluated.slice(-15).reverse().map(r => {
+        const won   = r.evaluation_summary?.total_won   ?? 0;
+        const spent = r.evaluation_summary?.total_spent ?? 0;
+        const roiN = won - spent;
+        const isWin = won > 0;
+        const roiStr = `<span style="color:${roiN>=0?'var(--green)':'var(--red)'}">${roiN>=0?'+':''}$${roiN}</span>`;
+        const pBalls = (r.predictions || []).filter(t => t && t.wb).map(t => {
+          const sc = stratColors[t.strategy] || { cls: 'A' };
+          const matched = t.match_wbs > 0 || t.match_mb;
+          const highlightStyle = matched ? 'outline:2px solid var(--gold);' : '';
+          const nums = t.wb.map(n=>`<span class="ball-mini ball-mini-w">${n}</span>`).join('') +
+                       `<span class="ball-mini ball-mini-g">${t.mb}</span>`;
+          return `<div style="margin-bottom:4px;display:flex;align-items:center;gap:4px;${highlightStyle}border-radius:6px;padding:1px 3px"><span class="strategy-badge strategy-${sc.cls}" style="font-size:10px;padding:2px 6px">${t.strategy}</span>${nums}${t.won>0?` <span style="color:var(--green);font-size:11px;font-weight:700">+$${t.won}</span>`:''}</div>`;
+        }).join('');
+        return `<tr style="${isWin?'background:rgba(34,216,122,0.04)':''}">
+          <td><span style="font-family:'JetBrains Mono',monospace;font-size:13px">${r.target_draw_date}${isWin?' 🏆':''}</span></td>
+          <td>${pBalls}</td>
+          <td><span style="color:${won>0?'var(--green)':'var(--muted)'};font-family:'JetBrains Mono',monospace;font-weight:${won>0?700:400}">$${won}</span></td>
+          <td><span style="font-family:'JetBrains Mono',monospace">$${spent}</span></td>
+          <td>${roiStr}</td>
+        </tr>`;
+      }).join('');
+
+      // Winning draws summary cards
+      const winCards = winningDraws.map(r => {
+        const es = r.evaluation_summary;
+        const winTickets = (r.predictions || []).filter(t => t && t.won > 0);
+        const winDetails = winTickets.map(t => {
+          const sc = stratColors[t.strategy] || { cls:'A', main:'#888' };
+          const nums = t.wb.map(n=>`<span class="ball-mini ball-mini-w">${n}</span>`).join('') +
+                       `<span class="ball-mini ball-mini-g">${t.mb}</span>`;
+          const matchDesc = `${t.match_wbs} WB${t.match_mb?' + MB':''}`;
+          return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+            <span class="strategy-badge strategy-${sc.cls}" style="white-space:nowrap">${t.strategy}</span>
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:3px">${nums}</div>
+            <span style="font-size:12px;color:var(--muted);white-space:nowrap">matched ${matchDesc}</span>
+            <span style="margin-left:auto;font-family:'JetBrains Mono',monospace;color:var(--green);font-weight:700;font-size:15px">+$${t.won}</span>
+          </div>`;
+        }).join('');
+        return `<div class="ticket-card" style="border-color:rgba(34,216,122,0.25);background:rgba(34,216,122,0.04)">
+          <div class="ticket-header">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700">${r.target_draw_date}</span>
+            <span style="background:rgba(34,216,122,0.15);color:var(--green);border:1px solid rgba(34,216,122,0.3);font-size:12px;font-weight:700;padding:3px 12px;border-radius:999px">🏆 Won $${es.total_won}</span>
+          </div>
+          ${winDetails}
+        </div>`;
+      }).join('');
+
+      app.innerHTML = `
+        <!-- Draw Hero -->
+        <div class="draw-hero fade-in">
+          <div class="draw-hero-left">
+            <h2>Next Draw: <span>${latest.target_draw_date}</span></h2>
+            <p>Run <code style="font-family:'JetBrains Mono',monospace;color:var(--gold);font-size:13px">#${latest.run_id}</code> · ${latest.predictions.length} tickets · Engine v${latest.version}</p>
+          </div>
+          <div class="countdown">
+            <div class="countdown-val" id="cdown">—</div>
+            <div class="countdown-label">until draw night</div>
+          </div>
+        </div>
+
+        <!-- Stats row -->
+        <div class="stat-grid fade-in">
+          <div class="stat-card gold">
+            <div class="stat-label">Virtual Bankroll</div>
+            <div class="stat-value gold">$${(mab.virtual_bankroll||0).toLocaleString()}</div>
+            <div class="stat-sub">${mab.draw_count} draws tracked</div>
+          </div>
+          <div class="stat-card green">
+            <div class="stat-label">Total Won (virtual)</div>
+            <div class="stat-value green">$${totalWon.toLocaleString()}</div>
+            <div class="stat-sub">across all strategies</div>
+          </div>
+          <div class="stat-card red">
+            <div class="stat-label">Net ROI</div>
+            <div class="stat-value red">${netROI>=0?'+':''}$${Math.abs(netROI)}</div>
+            <div class="stat-sub">$${totalSpent} spent total</div>
+          </div>
+          <div class="stat-card blue">
+            <div class="stat-label">Predictions Run</div>
+            <div class="stat-value blue">${preds.length}</div>
+            <div class="stat-sub">${evaluated.length} evaluated</div>
+          </div>
+        </div>
+
+        <!-- Tickets -->
+        <div class="section-title">🎟 Today's Predictions</div>
+        <div class="predictions-grid">
+          ${ticketCards}
+        </div>
+
+        <!-- Strategy performance -->
+        <div class="section-title">📊 Strategy Performance (MAB)</div>
+        <div class="strategy-grid">
+          ${strategyCards}
+        </div>
+
+        <!-- ROI chart -->
+        <div class="section-title">📈 ROI Per Draw</div>
+        <div class="card fade-in" style="margin-bottom:40px">
+          <div class="chart-wrap">
+            <canvas id="roi-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Winning draws 🏆 -->
+        ${winCards ? `
+        <div class="section-title">🏆 Winning Draws (${winningDraws.length} total)</div>
+        <div class="predictions-grid">
+          ${winCards}
+        </div>` : ''}
+
+        <!-- History table -->
+        ${histRows ? `
+        <div class="section-title">🕒 Recent Draw Results</div>
+        <div class="card fade-in table-wrap">
+          <table>
+            <thead><tr>
+              <th>Draw Date</th>
+              <th>Predictions</th>
+              <th>Won</th>
+              <th>Spent</th>
+              <th>Net ROI</th>
+            </tr></thead>
+            <tbody>${histRows}</tbody>
+          </table>
+        </div>` : ''}
+      `;
+
+      // Countdown timer
+      const updateCountdown = () => {
+        const el = document.getElementById('cdown');
+        if (el) el.textContent = countdown(latest.target_draw_date);
+      };
+      updateCountdown();
+      setInterval(updateCountdown, 60000);
+
+      // Build chart
+      if (roiHistory.length > 0) {
+        const ctx = document.getElementById('roi-chart').getContext('2d');
+        const labels = roiHistory.map(r => r.date);
+        const data   = roiHistory.map(r => r.roi);
+        const colors = data.map(v => v >= 0 ? 'rgba(34,216,122,0.85)' : 'rgba(252,60,93,0.85)');
+
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              label: 'Net ROI per Draw',
+              data,
+              backgroundColor: colors,
+              borderRadius: 6,
+              borderSkipped: false,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: ctx => `Net ROI: ${ctx.raw>=0?'+':''}$${ctx.raw}`
+                }
+              }
+            },
+            scales: {
+              x: {
+                grid: { color: 'rgba(255,255,255,0.05)' },
+                ticks: { color: '#6b7280', font: { family: 'JetBrains Mono', size: 11 } }
+              },
+              y: {
+                grid: { color: 'rgba(255,255,255,0.05)' },
+                ticks: { color: '#6b7280', callback: v => `$${v}`, font: { family: 'JetBrains Mono', size: 11 } }
+              }
+            }
+          }
+        });
+      } else {
+        // Show placeholder chart with dummy data if no evaluated runs yet
+        const ctx = document.getElementById('roi-chart').getContext('2d');
+        const dummyLabels = ['No evaluated draws yet'];
+        new Chart(ctx, {
+          type: 'bar',
+          data: { labels: dummyLabels, datasets: [{ label: 'Net ROI', data: [0], backgroundColor: 'rgba(245,200,66,0.2)', borderRadius:6 }] },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b7280' } },
+              y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b7280', callback: v=>`$${v}` } }
+            }
+          }
+        });
+      }
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
