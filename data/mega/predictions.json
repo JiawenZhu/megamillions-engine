@@ -5029,7 +5029,10 @@
                 ],
                 "mb": 6,
                 "strategy": "A-hot",
-                "source": "ensemble_v6"
+                "source": "ensemble_v6",
+                "match_wbs": 1,
+                "match_mb": false,
+                "won": 0
             },
             {
                 "wb": [
@@ -5041,7 +5044,10 @@
                 ],
                 "mb": 22,
                 "strategy": "B-cold",
-                "source": "ensemble_v6"
+                "source": "ensemble_v6",
+                "match_wbs": 0,
+                "match_mb": false,
+                "won": 0
             },
             {
                 "wb": [
@@ -5053,7 +5059,10 @@
                 ],
                 "mb": 17,
                 "strategy": "C-random",
-                "source": "ensemble_v6"
+                "source": "ensemble_v6",
+                "match_wbs": 0,
+                "match_mb": false,
+                "won": 0
             },
             {
                 "wb": [
@@ -5064,6 +5073,134 @@
                     63
                 ],
                 "mb": 23,
+                "strategy": "D-hybrid",
+                "source": "ensemble_v6",
+                "match_wbs": 1,
+                "match_mb": false,
+                "won": 0
+            }
+        ],
+        "evaluated": true,
+        "evaluation_summary": {
+            "total_spent": 8,
+            "total_won": 0,
+            "net_roi": -8,
+            "by_strategy": {
+                "A-hot": {
+                    "tickets": 1,
+                    "spent": 2,
+                    "won": 0,
+                    "roi": -2
+                },
+                "B-cold": {
+                    "tickets": 1,
+                    "spent": 2,
+                    "won": 0,
+                    "roi": -2
+                },
+                "C-random": {
+                    "tickets": 1,
+                    "spent": 2,
+                    "won": 0,
+                    "roi": -2
+                },
+                "D-hybrid": {
+                    "tickets": 1,
+                    "spent": 2,
+                    "won": 0,
+                    "roi": -2
+                }
+            }
+        }
+    },
+    {
+        "run_id": "1992261f",
+        "version": "6.0",
+        "game": "mega_millions",
+        "created_at": "2026-04-23T01:44:30.595469",
+        "target_draw_date": "2026-04-24",
+        "history_size": 2520,
+        "budget": 3,
+        "bankroll_at_pred": 9646,
+        "allocation": {
+            "A-hot": 1,
+            "B-cold": 1,
+            "C-random": 1,
+            "D-hybrid": 1
+        },
+        "ensemble_weights": {
+            "A-hot": {
+                "theta": 0.123709,
+                "kelly_f": 0.0,
+                "ema_roi": -0.912116,
+                "allocation": 1
+            },
+            "B-cold": {
+                "theta": 0.083954,
+                "kelly_f": 0.0,
+                "ema_roi": -0.995785,
+                "allocation": 1
+            },
+            "C-random": {
+                "theta": 0.043628,
+                "kelly_f": 0.0,
+                "ema_roi": -0.950587,
+                "allocation": 1
+            },
+            "D-hybrid": {
+                "theta": 0.128383,
+                "kelly_f": 0.0,
+                "ema_roi": -0.996701,
+                "allocation": 1
+            }
+        },
+        "mab_draw_count": 20,
+        "predictions": [
+            {
+                "wb": [
+                    15,
+                    27,
+                    34,
+                    39,
+                    51
+                ],
+                "mb": 3,
+                "strategy": "A-hot",
+                "source": "ensemble_v6"
+            },
+            {
+                "wb": [
+                    4,
+                    5,
+                    20,
+                    35,
+                    61
+                ],
+                "mb": 9,
+                "strategy": "B-cold",
+                "source": "ensemble_v6"
+            },
+            {
+                "wb": [
+                    9,
+                    27,
+                    41,
+                    56,
+                    70
+                ],
+                "mb": 25,
+                "strategy": "C-random",
+                "source": "ensemble_v6"
+            },
+            {
+                "wb": [
+                    5,
+                    11,
+                    32,
+                    45,
+                    48
+                ],
+                "mb": 22,
                 "strategy": "D-hybrid",
                 "source": "ensemble_v6"
             }

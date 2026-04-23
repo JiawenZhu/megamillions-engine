@@ -1,39 +1,39 @@
 {
-    "virtual_bankroll": 9654,
-    "draw_count": 19,
+    "virtual_bankroll": 9646,
+    "draw_count": 20,
     "strategies": {
         "A-hot": {
             "alpha": 3.0,
-            "beta": 31.0,
-            "ema_roi": -0.87445171,
+            "beta": 32.0,
+            "ema_roi": -0.912116197,
             "avg_payout_mult": 1.4,
-            "lifetime_tickets": 32,
+            "lifetime_tickets": 33,
             "lifetime_won": 6
         },
         "B-cold": {
             "alpha": 6.0,
-            "beta": 57.0,
-            "ema_roi": -0.9939781676750412,
+            "beta": 58.0,
+            "ema_roi": -0.9957847173725287,
             "avg_payout_mult": 1.6623999999999999,
-            "lifetime_tickets": 61,
+            "lifetime_tickets": 62,
             "lifetime_won": 20
         },
         "C-random": {
             "alpha": 2.0,
-            "beta": 40.0,
-            "ema_roi": -0.9294106,
+            "beta": 41.0,
+            "ema_roi": -0.95058742,
             "avg_payout_mult": 1.4,
-            "lifetime_tickets": 40,
+            "lifetime_tickets": 41,
             "lifetime_won": 4
         },
         "D-hybrid": {
             "alpha": 5.0,
-            "beta": 58.0,
-            "ema_roi": -0.9952864532677268,
+            "beta": 59.0,
+            "ema_roi": -0.9967005172874086,
             "avg_payout_mult": 1.344,
-            "lifetime_tickets": 61,
+            "lifetime_tickets": 62,
             "lifetime_won": 12
         }
     },
-    "last_updated": "2026-04-20T21:19:30.305272"
+    "last_updated": "2026-04-23T01:44:30.600454"
 }

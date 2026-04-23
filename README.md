@@ -153,3 +153,14 @@ This is a statistical analysis and educational tool. Lottery draws are random â€
 ## ðŸ“„ License
 
 [Apache License 2.0](LICENSE)
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=JiawenZhu/megamillions-engine&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=JiawenZhu/megamillions-engine&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=JiawenZhu/megamillions-engine&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=JiawenZhu/megamillions-engine&type=date&legend=top-left" />
+ </picture>
+</a>
+
